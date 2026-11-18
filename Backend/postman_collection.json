@@ -1,0 +1,184 @@
+{
+  "info": {
+    "name": "Chat API",
+    "description": "Endpoints of the FastAPI chat backend. Run the requests in order: 'Create conversation' stores conversation_id for the others.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "conversation_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('status is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+      }
+    },
+    {
+      "name": "Create conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('has id', () => pm.expect(body.id).to.be.a('number'));",
+              "pm.collectionVariables.set('conversation_id', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": { "raw": "{{baseUrl}}/api/conversations", "host": ["{{baseUrl}}"], "path": ["api", "conversations"] }
+      }
+    },
+    {
+      "name": "Send message",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('user message saved', () => pm.expect(body.user_message.role).to.eql('user'));",
+              "pm.test('assistant replied', () => {",
+              "  pm.expect(body.assistant_message.role).to.eql('assistant');",
+              "  pm.expect(body.assistant_message.content).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"content\": \"Hello! Tell me a fun fact.\"\n}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversation_id}}/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "conversations", "{{conversation_id}}", "messages"]
+        }
+      }
+    },
+    {
+      "name": "Send follow-up message (uses full history)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('assistant replied', () => pm.expect(pm.response.json().assistant_message.content).to.not.be.empty);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"content\": \"Can you explain that in one sentence?\"\n}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversation_id}}/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "conversations", "{{conversation_id}}", "messages"]
+        }
+      }
+    },
+    {
+      "name": "Get conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('contains the messages in order', () => {",
+              "  pm.expect(body.messages.length).to.be.at.least(4);",
+              "  pm.expect(body.messages[0].role).to.eql('user');",
+              "  pm.expect(body.messages[1].role).to.eql('assistant');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversation_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "conversations", "{{conversation_id}}"]
+        }
+      }
+    },
+    {
+      "name": "Error: empty message (422)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+              "pm.test('friendly error message', () => pm.expect(pm.response.json().detail).to.be.a('string'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"content\": \"   \"\n}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversation_id}}/messages",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "conversations", "{{conversation_id}}", "messages"]
+        }
+      }
+    },
+    {
+      "name": "Error: conversation not found (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+              "pm.test('friendly error message', () => pm.expect(pm.response.json().detail).to.be.a('string'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "conversations", "999999"]
+        }
+      }
+    }
+  ]
+}
